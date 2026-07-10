@@ -18,7 +18,7 @@ Inspired by "82-0," reimagined for football: spin a Team and an Era, draft real 
 
 - React 19 + Vite
 - A curated, hand-researched dataset of real NFL players by team/decade (`src/data/players.js`)
-- A deterministic rating engine that scores every player from a stable position/decade/name hash, rolls up a weighted team overall, and simulates a 17-game season against randomized weekly opponents with a logistic win-probability curve (`src/engine/recordPredictor.js`)
+- A Madden-style rating engine (`src/engine/recordPredictor.js`): marquee/Hall of Fame players are scored from a hand-researched table of real peak Madden overalls (`src/data/peakRatings.js`), while everyone else falls back to a deterministic position/decade/accolade heuristic. Team overall rolls up from a weighted average of the roster, then a 17-game season is simulated against randomized weekly opponents with a logistic win-probability curve.
 
 ## Running locally
 
@@ -36,6 +36,7 @@ src/
   data/
     teams.js       # 32 franchises, colors, founding years, historical era names
     players.js      # player database: PLAYERS[teamId][decade][position]
+    peakRatings.js  # researched peak Madden overalls for HOF/marquee players
   engine/
     dataAccess.js       # pool lookup + decade-fallback logic
     recordPredictor.js  # player/team rating + season simulation

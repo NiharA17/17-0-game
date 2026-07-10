@@ -190,10 +190,7 @@ function App() {
     if (mode === "challenge") {
       list.sort((a, b) => a.player.name.localeCompare(b.player.name));
     } else if (sortMode === "OVR") {
-      list.sort(
-        (a, b) =>
-          ratingFor(b.pos, b.player.name, era, team?.name) - ratingFor(a.pos, a.player.name, era, team?.name)
-      );
+      list.sort((a, b) => ratingFor(b.pos, b.player, era, team?.name) - ratingFor(a.pos, a.player, era, team?.name));
     } else {
       list.sort((a, b) => a.player.name.localeCompare(b.player.name));
     }

@@ -27,7 +27,7 @@ export default function Field({ roster, hideStats }) {
       {SLOT_LAYOUT.map((slot) => {
         const entry = roster[slot.key];
         const rating = entry
-          ? ratingFor(entry.position, entry.player.name, entry.decade, entry.team?.name || entry.team)
+          ? ratingFor(entry.position, entry.player, entry.decade, entry.team?.name || entry.team)
           : null;
         return (
           <div

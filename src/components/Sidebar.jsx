@@ -68,7 +68,7 @@ export default function Sidebar({
               key={`${pos}-${player.name}`}
               player={player}
               position={pos}
-              rating={ratingFor(pos, player.name, era, team?.name)}
+              rating={ratingFor(pos, player, era, team?.name)}
               hideDetails={hideDetails}
               onClick={() => onPick(player, pos)}
             />
