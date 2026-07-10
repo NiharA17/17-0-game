@@ -1,16 +1,50 @@
-# React + Vite
+# 17-0
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Build an all-time NFL roster and see if they could go undefeated in today's league.
 
-Currently, two official plugins are available:
+Inspired by "82-0," reimagined for football: spin a Team and an Era, draft real players from that team's history into your 6-man roster (QB, RB, WR, WR, TE, DEF), and let the AI simulate a 17-game season.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## How to play
 
-## React Compiler
+1. Pick **Classic** (stats visible) or **Challenge** (players listed alphabetically, stats hidden) mode.
+2. Spin a **Team** and an **Era** (1920s-2020s). You get one respin for Team and one respin for Era, usable anywhere in the game.
+3. Once both land, every open position's real players from that team/era show up — draft any one of them into your roster.
+4. Repeat until all 6 spots are filled.
+5. The AI rates your roster and simulates a 17-game season, giving you a final record and verdict.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tech stack
 
-## Expanding the Oxlint configuration
+- React 19 + Vite
+- A curated, hand-researched dataset of real NFL players by team/decade (`src/data/players.js`)
+- A heuristic rating engine that scores players on stats + accolades and projects a season record (`src/engine/recordPredictor.js`)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Running locally
+
+```bash
+npm install
+npm run dev
+```
+
+Then open the printed `http://localhost:5173/` URL.
+
+## Project structure
+
+```
+src/
+  data/
+    teams.js       # 32 franchises, colors, founding years, historical era names
+    players.js      # player database: PLAYERS[teamId][decade][position]
+  engine/
+    dataAccess.js       # pool lookup + decade-fallback logic
+    recordPredictor.js  # roster rating + season simulation
+  components/
+    ModeSelect.jsx   # Classic / Challenge mode picker
+    DraftPanel.jsx   # team/era spinner + player draft UI
+    Field.jsx        # roster display on a mini football field
+    PlayerCard.jsx   # individual player card
+    ResultScreen.jsx # final record + breakdown
+```
+
+## Data notes
+
+Player stats are per-season averages for that player's time with that team during that decade, sourced from public NFL historical records. Depth (number of players per team/decade/position) is more complete for recent decades and thinner for the 1920s-1950s, where historical stat-keeping was sparse. Contributions/corrections to `src/data/players.js` are welcome.
