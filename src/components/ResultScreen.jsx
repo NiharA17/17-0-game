@@ -1,6 +1,6 @@
 import Field from "./Field.jsx";
 
-const SLOT_LABELS = { QB: "QB", RB: "RB", WR1: "WR1", WR2: "WR2", TE: "TE", DEF: "DEF" };
+const SLOT_LABELS = { QB: "QB", RB: "RB", WR: "WR", FLEX: "FLEX", TE: "TE", DEF: "DEF" };
 
 export default function ResultScreen({ roster, result, onPlayAgain }) {
   const { wins, losses, verdict, rating, breakdown, games } = result;

@@ -2,7 +2,7 @@
 // record as if that roster played in today's NFL. No external LLM call --
 // it's a deterministic scoring model based on stat magnitude + accolades.
 
-const POSITION_WEIGHT = { QB: 0.30, RB: 0.15, WR1: 0.15, WR2: 0.13, TE: 0.12, DEF: 0.15 };
+const POSITION_WEIGHT = { QB: 0.30, RB: 0.15, WR: 0.15, FLEX: 0.13, TE: 0.12, DEF: 0.15 };
 
 const ACCOLADE_BONUSES = [
   { re: /HOF|Hall of Fame/i, bonus: 22 },
@@ -95,14 +95,15 @@ export function ratePlayer(player, position) {
   return Math.max(5, Math.min(100, base + bonus));
 }
 
-// roster: { QB, RB, WR1, WR2, TE, DEF } each = { player, position }
+// roster: { QB, RB, WR, FLEX, TE, DEF } each = { player, position }. `position` on
+// each entry is the player's ACTUAL position (e.g. a RB slotted into FLEX still
+// has position "RB"), while the object key is which roster SLOT they occupy.
 export function computeTeamRating(roster) {
   let total = 0;
   const breakdown = {};
   for (const slot of Object.keys(POSITION_WEIGHT)) {
     const entry = roster[slot];
-    const pos = entry.position === "WR1" || entry.position === "WR2" ? "WR" : entry.position;
-    const score = ratePlayer(entry.player, pos);
+    const score = ratePlayer(entry.player, entry.position);
     breakdown[slot] = score;
     total += score * POSITION_WEIGHT[slot];
   }

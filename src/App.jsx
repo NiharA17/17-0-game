@@ -1,31 +1,41 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import "./App.css";
 import ModeSelect from "./components/ModeSelect.jsx";
-import DraftPanel from "./components/DraftPanel.jsx";
+import Sidebar from "./components/Sidebar.jsx";
+import TopStatusBar from "./components/TopStatusBar.jsx";
 import Field from "./components/Field.jsx";
 import ResultScreen from "./components/ResultScreen.jsx";
-import { predictRecord } from "./engine/recordPredictor.js";
+import { TEAMS, validErasForTeam } from "./data/teams.js";
+import { getPoolWithMinimum } from "./engine/dataAccess.js";
+import { ratePlayer, predictRecord } from "./engine/recordPredictor.js";
 
-const SLOTS = ["QB", "RB", "WR1", "WR2", "TE", "DEF"];
+const SLOTS = ["QB", "RB", "WR", "FLEX", "TE", "DEF"];
+const FLEX_ELIGIBLE = ["RB", "WR", "TE"];
 
 // Given a generic position (QB/RB/WR/TE/DEF) and the current roster, figure out
-// which specific slot to fill (WR has two slots, so it fills WR1 then WR2).
+// which specific slot to fill. RB/WR/TE all overflow into the shared FLEX slot
+// once their primary slot is taken.
 function nextOpenSlot(position, roster) {
-  if (position === "WR") {
-    if (!roster.WR1) return "WR1";
-    if (!roster.WR2) return "WR2";
+  if (position === "QB" || position === "DEF") {
+    return roster[position] ? null : position;
+  }
+  if (FLEX_ELIGIBLE.includes(position)) {
+    if (!roster[position]) return position;
+    if (!roster.FLEX) return "FLEX";
     return null;
   }
-  return roster[position] ? null : position;
+  return null;
 }
 
+// Which generic positions still have a home somewhere in the roster (primary
+// slot or FLEX).
 function computeOpenPositions(roster) {
   const open = [];
   if (!roster.QB) open.push("QB");
-  if (!roster.RB) open.push("RB");
-  if (!roster.WR1 || !roster.WR2) open.push("WR");
-  if (!roster.TE) open.push("TE");
   if (!roster.DEF) open.push("DEF");
+  for (const pos of FLEX_ELIGIBLE) {
+    if (!roster[pos] || !roster.FLEX) open.push(pos);
+  }
   return open;
 }
 
@@ -37,14 +47,97 @@ function App() {
   const [result, setResult] = useState(null);
   const [turnKey, setTurnKey] = useState(0);
 
+  const [phase, setPhase] = useState("idle"); // idle -> spinning -> ready
+  const [team, setTeam] = useState(null);
+  const [era, setEra] = useState(null);
+  const [teamDisplay, setTeamDisplay] = useState(null);
+  const [eraDisplay, setEraDisplay] = useState(null);
+  const [spinningWhat, setSpinningWhat] = useState(null); // "team" | "era" | null
+
+  const [search, setSearch] = useState("");
+  const [positionFilter, setPositionFilter] = useState("ALL");
+  const [sortMode, setSortMode] = useState("OVR");
+
+  function resetSpinState() {
+    setPhase("idle");
+    setTeam(null);
+    setEra(null);
+    setTeamDisplay(null);
+    setEraDisplay(null);
+    setSpinningWhat(null);
+    setSearch("");
+    setPositionFilter("ALL");
+  }
+
+  function runReel(setDisplay, options, finalValue, onFinish) {
+    let ticks = 0;
+    const iv = setInterval(() => {
+      setDisplay(options[Math.floor(Math.random() * options.length)]);
+      ticks++;
+      if (ticks > 14) {
+        clearInterval(iv);
+        setDisplay(finalValue);
+        onFinish();
+      }
+    }, 70);
+  }
+
+  function spinBoth() {
+    setPhase("spinning");
+    setSpinningWhat("team");
+    const finalTeam = TEAMS[Math.floor(Math.random() * TEAMS.length)];
+    runReel(setTeamDisplay, TEAMS, finalTeam, () => {
+      setTeam(finalTeam);
+      const valid = validErasForTeam(finalTeam);
+      const finalEra = valid[Math.floor(Math.random() * valid.length)];
+      setSpinningWhat("era");
+      runReel(setEraDisplay, valid, finalEra, () => {
+        setEra(finalEra);
+        setSpinningWhat(null);
+        setPhase("ready");
+      });
+    });
+  }
+
+  function respinTeam() {
+    setTeamRespinAvailable(false);
+    setSpinningWhat("team");
+    const finalTeam = TEAMS[Math.floor(Math.random() * TEAMS.length)];
+    runReel(setTeamDisplay, TEAMS, finalTeam, () => {
+      setTeam(finalTeam);
+      const valid = validErasForTeam(finalTeam);
+      if (!valid.includes(era)) {
+        const finalEra = valid[Math.floor(Math.random() * valid.length)];
+        setSpinningWhat("era");
+        runReel(setEraDisplay, valid, finalEra, () => {
+          setEra(finalEra);
+          setSpinningWhat(null);
+        });
+      } else {
+        setSpinningWhat(null);
+      }
+    });
+  }
+
+  function respinEra() {
+    setEraRespinAvailable(false);
+    setSpinningWhat("era");
+    const valid = validErasForTeam(team);
+    const finalEra = valid[Math.floor(Math.random() * valid.length)];
+    runReel(setEraDisplay, valid, finalEra, () => {
+      setEra(finalEra);
+      setSpinningWhat(null);
+    });
+  }
+
   function handleModeSelect(selected) {
     setMode(selected);
   }
 
-  function handleLockPick({ player, position, team, decade }) {
+  function handleLockPick(player, position) {
     const slot = nextOpenSlot(position, roster);
     if (!slot) return;
-    const newRoster = { ...roster, [slot]: { player, position: slot, team, decade } };
+    const newRoster = { ...roster, [slot]: { player, position, team, decade: era } };
     setRoster(newRoster);
 
     if (Object.keys(newRoster).length >= SLOTS.length) {
@@ -54,6 +147,7 @@ function App() {
       setResult(predictRecord(newRoster, seed));
     } else {
       setTurnKey((k) => k + 1);
+      resetSpinState();
     }
   }
 
@@ -64,7 +158,45 @@ function App() {
     setEraRespinAvailable(true);
     setResult(null);
     setTurnKey(0);
+    resetSpinState();
   }
+
+  const excludeNames = Object.values(roster).map((e) => e.player.name);
+  const openPositions = computeOpenPositions(roster);
+  const picksRemaining = SLOTS.length - Object.keys(roster).length;
+
+  const availablePlayers = useMemo(() => {
+    if (!team || !era || phase !== "ready") return [];
+    const list = [];
+    for (const pos of openPositions) {
+      const pool = getPoolWithMinimum(team.id, era, pos).filter((p) => !excludeNames.includes(p.name));
+      for (const p of pool) list.push({ player: p, pos });
+    }
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [team, era, phase, openPositions.join(","), excludeNames.join(",")]);
+
+  const visiblePlayers = useMemo(() => {
+    let list = availablePlayers;
+    if (positionFilter === "FLEX") {
+      list = list.filter((e) => FLEX_ELIGIBLE.includes(e.pos));
+    } else if (positionFilter !== "ALL") {
+      list = list.filter((e) => e.pos === positionFilter);
+    }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter((e) => e.player.name.toLowerCase().includes(q));
+    }
+    list = [...list];
+    if (mode === "challenge") {
+      list.sort((a, b) => a.player.name.localeCompare(b.player.name));
+    } else if (sortMode === "OVR") {
+      list.sort((a, b) => ratePlayer(b.player, b.pos) - ratePlayer(a.player, a.pos));
+    } else {
+      list.sort((a, b) => a.player.name.localeCompare(b.player.name));
+    }
+    return list;
+  }, [availablePlayers, positionFilter, search, mode, sortMode]);
 
   if (!mode) {
     return <ModeSelect onSelect={handleModeSelect} />;
@@ -74,10 +206,6 @@ function App() {
     return <ResultScreen roster={roster} result={result} onPlayAgain={handlePlayAgain} />;
   }
 
-  const excludeNames = Object.values(roster).map((e) => e.player.name);
-  const openPositions = computeOpenPositions(roster);
-  const picksRemaining = SLOTS.length - Object.keys(roster).length;
-
   return (
     <div className="game-shell">
       <header className="game-header">
@@ -86,21 +214,39 @@ function App() {
       </header>
 
       <div className="game-body">
-        <Field roster={roster} hideStats={mode === "challenge"} />
-
-        <DraftPanel
+        <Sidebar
           key={turnKey}
-          openPositions={openPositions}
-          picksRemaining={picksRemaining}
-          totalSlots={SLOTS.length}
+          phase={phase}
           mode={mode}
-          teamRespinAvailable={teamRespinAvailable}
-          eraRespinAvailable={eraRespinAvailable}
-          onUseTeamRespin={() => setTeamRespinAvailable(false)}
-          onUseEraRespin={() => setEraRespinAvailable(false)}
-          onLockPick={handleLockPick}
-          excludeNames={excludeNames}
+          players={visiblePlayers}
+          positionFilter={positionFilter}
+          setPositionFilter={setPositionFilter}
+          search={search}
+          setSearch={setSearch}
+          sortMode={sortMode}
+          setSortMode={setSortMode}
+          onPick={handleLockPick}
         />
+
+        <div className="main-column">
+          <TopStatusBar
+            phase={phase}
+            mode={mode}
+            team={team}
+            era={era}
+            teamDisplay={teamDisplay}
+            eraDisplay={eraDisplay}
+            spinningWhat={spinningWhat}
+            teamRespinAvailable={teamRespinAvailable}
+            eraRespinAvailable={eraRespinAvailable}
+            onSpin={spinBoth}
+            onRespinTeam={respinTeam}
+            onRespinEra={respinEra}
+            picksRemaining={picksRemaining}
+            totalSlots={SLOTS.length}
+          />
+          <Field roster={roster} hideStats={mode === "challenge"} />
+        </div>
       </div>
     </div>
   );
