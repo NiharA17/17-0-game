@@ -2,13 +2,15 @@
 
 Build an all-time NFL roster and see if they could go undefeated in today's league.
 
-Inspired by "82-0," reimagined for football: spin a Team and an Era, draft real players from that team's history into your 6-man roster (QB, RB, WR, WR, TE, DEF), and let the AI simulate a 17-game season.
+**Play it live: https://nihara17.github.io/17-0-game/**
+
+Inspired by "82-0," reimagined for football: spin a Team and an Era, draft real players from that team's history into your 6-man roster (QB, RB, WR, FLEX, TE, DEF), and let the AI simulate a 17-game season.
 
 ## How to play
 
 1. Pick **Classic** (stats visible) or **Challenge** (players listed alphabetically, stats hidden) mode.
 2. Spin a **Team** and an **Era** (1920s-2020s). You get one respin for Team and one respin for Era, usable anywhere in the game.
-3. Once both land, every open position's real players from that team/era show up — draft any one of them into your roster.
+3. Once both land, every open position's real players from that team/era show up in the sidebar — draft any one of them into your roster. The 2nd skill-position slot is a **FLEX** (RB, WR, or TE eligible).
 4. Repeat until all 6 spots are filled.
 5. The AI rates your roster and simulates a 17-game season, giving you a final record and verdict.
 

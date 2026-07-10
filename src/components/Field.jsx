@@ -4,10 +4,10 @@ import PlayerCard from "./PlayerCard.jsx";
 const SLOT_LAYOUT = [
   { key: "DEF", label: "DEF", top: "24%", left: "50%", side: "defense" },
 
-  { key: "TE", label: "TE", top: "54%", left: "15%", side: "offense" },
-  { key: "WR", label: "WR", top: "54%", left: "85%", side: "offense" },
-  { key: "QB", label: "QB", top: "76%", left: "32%", side: "offense" },
-  { key: "FLEX", label: "FLEX", top: "76%", left: "68%", side: "offense" },
+  { key: "TE", label: "TE", top: "50%", left: "15%", side: "offense" },
+  { key: "WR", label: "WR", top: "50%", left: "85%", side: "offense" },
+  { key: "FLEX", label: "FLEX", top: "64%", left: "80%", side: "offense" },
+  { key: "QB", label: "QB", top: "78%", left: "50%", side: "offense" },
   { key: "RB", label: "RB", top: "94%", left: "50%", side: "offense" },
 ];
 
