@@ -1,10 +1,13 @@
 import PlayerCard from "./PlayerCard.jsx";
+import { ratingFor } from "../engine/recordPredictor.js";
 
 const TABS = ["ALL", "QB", "RB", "WR", "FLEX", "TE", "DEF"];
 
 export default function Sidebar({
   phase,
   mode,
+  team,
+  era,
   players,
   positionFilter,
   setPositionFilter,
@@ -15,14 +18,15 @@ export default function Sidebar({
   onPick,
 }) {
   const ready = phase === "ready";
+  const hideDetails = mode === "challenge";
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-tabs">
+    <section className="draft-pool">
+      <div className="controls">
         {TABS.map((tab) => (
           <button
             key={tab}
-            className={`sidebar-tab ${positionFilter === tab ? "active" : ""}`}
+            className={`pos-btn ${positionFilter === tab ? "active" : ""}`}
             onClick={() => setPositionFilter(tab)}
           >
             {tab}
@@ -30,44 +34,47 @@ export default function Sidebar({
         ))}
       </div>
 
-      <div className="sidebar-controls">
+      <div className="controls">
         <input
-          className="sidebar-search"
+          className="search"
           type="text"
           placeholder="Search..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         <select
-          className="sidebar-sort"
-          value={mode === "challenge" ? "AZ" : sortMode}
+          className="sort"
+          value={hideDetails ? "AZ" : sortMode}
           onChange={(e) => setSortMode(e.target.value)}
-          disabled={mode === "challenge"}
+          disabled={hideDetails}
         >
           <option value="OVR">OVR</option>
           <option value="AZ">A-Z</option>
         </select>
       </div>
 
-      <div className="sidebar-count">{ready ? players.length : 0} players available</div>
+      <p className="available">
+        <span>{ready ? players.length : 0}</span> players available
+      </p>
 
-      <div className="sidebar-list">
+      <div className="player-list">
         {!ready ? (
-          <p className="sidebar-placeholder">Spin the board to start the draft.</p>
+          <p className="placeholder">Spin the board to start the draft.</p>
         ) : players.length === 0 ? (
-          <p className="sidebar-placeholder">No players match. Try clearing filters/search, or respin.</p>
+          <p className="placeholder">No players match. Try clearing filters/search, or respin.</p>
         ) : (
           players.map(({ player, pos }) => (
             <PlayerCard
               key={`${pos}-${player.name}`}
               player={player}
               position={pos}
-              hideDetails={mode === "challenge"}
+              rating={ratingFor(pos, player.name, era, team?.name)}
+              hideDetails={hideDetails}
               onClick={() => onPick(player, pos)}
             />
           ))
         )}
       </div>
-    </aside>
+    </section>
   );
 }

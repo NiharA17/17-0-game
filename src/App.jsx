@@ -2,12 +2,11 @@ import { useMemo, useState } from "react";
 import "./App.css";
 import ModeSelect from "./components/ModeSelect.jsx";
 import Sidebar from "./components/Sidebar.jsx";
-import TopStatusBar from "./components/TopStatusBar.jsx";
 import Field from "./components/Field.jsx";
 import ResultScreen from "./components/ResultScreen.jsx";
-import { TEAMS, validErasForTeam } from "./data/teams.js";
+import { TEAMS, validErasForTeam, eraLabel, teamDisplayNameForEra } from "./data/teams.js";
 import { getPoolWithMinimum } from "./engine/dataAccess.js";
-import { ratePlayer, predictRecord } from "./engine/recordPredictor.js";
+import { ratingFor, predictRecord } from "./engine/recordPredictor.js";
 
 const SLOTS = ["QB", "RB", "WR", "FLEX", "TE", "DEF"];
 const FLEX_ELIGIBLE = ["RB", "WR", "TE"];
@@ -191,12 +190,15 @@ function App() {
     if (mode === "challenge") {
       list.sort((a, b) => a.player.name.localeCompare(b.player.name));
     } else if (sortMode === "OVR") {
-      list.sort((a, b) => ratePlayer(b.player, b.pos) - ratePlayer(a.player, a.pos));
+      list.sort(
+        (a, b) =>
+          ratingFor(b.pos, b.player.name, era, team?.name) - ratingFor(a.pos, a.player.name, era, team?.name)
+      );
     } else {
       list.sort((a, b) => a.player.name.localeCompare(b.player.name));
     }
     return list;
-  }, [availablePlayers, positionFilter, search, mode, sortMode]);
+  }, [availablePlayers, positionFilter, search, mode, sortMode, era, team]);
 
   if (!mode) {
     return <ModeSelect onSelect={handleModeSelect} />;
@@ -206,18 +208,63 @@ function App() {
     return <ResultScreen roster={roster} result={result} onPlayAgain={handlePlayAgain} />;
   }
 
+  const pickNumber = Math.min(SLOTS.length - picksRemaining + 1, SLOTS.length);
+
+  let teamChipText = "SPIN";
+  let yearChipText = "YEAR";
+  let noteChipText = "Spin a team & era, then pick any open position from that board.";
+  if (phase === "spinning") {
+    teamChipText = teamDisplay ? teamDisplay.abbr : "???";
+    yearChipText = eraDisplay ? eraLabel(eraDisplay) : "????s";
+    noteChipText = "Finding board\u2026";
+  } else if (phase === "ready" && team && era) {
+    teamChipText = teamDisplayNameForEra(team, era);
+    yearChipText = eraLabel(era);
+    noteChipText = "Pick any open spot from this board.";
+  }
+
   return (
     <div className="game-shell">
-      <header className="game-header">
-        <h1>17-0</h1>
-        <span className={`mode-badge ${mode}`}>{mode === "classic" ? "Classic Mode" : "Challenge Mode"}</span>
-      </header>
+      <div className="round-row">
+        <div className="round">
+          Pick {pickNumber} / {SLOTS.length}
+          <span className={`mode-pill ${mode}`}>{mode === "classic" ? "Classic" : "Challenge"}</span>
+        </div>
+        <div className="round-actions">
+          {phase === "idle" && (
+            <button className="btn" onClick={spinBoth}>
+              Spin Board
+            </button>
+          )}
+          {phase === "ready" && teamRespinAvailable && (
+            <button className="btn secondary" onClick={respinTeam}>
+              Respin Team
+            </button>
+          )}
+          {phase === "ready" && eraRespinAvailable && (
+            <button className="btn secondary" onClick={respinEra}>
+              Respin Era
+            </button>
+          )}
+        </div>
+      </div>
 
-      <div className="game-body">
+      <div className="chips">
+        <span className={`chip team ${phase === "spinning" && spinningWhat === "team" ? "spin-flash" : ""}`}>
+          {teamChipText}
+        </span>
+        <span className={`chip year ${phase === "spinning" && spinningWhat === "era" ? "spin-flash" : ""}`}>
+          {yearChipText}
+        </span>
+        <span className="chip note">{noteChipText}</span>
+      </div>
+
+      <div className="main" key={turnKey}>
         <Sidebar
-          key={turnKey}
           phase={phase}
           mode={mode}
+          team={team}
+          era={era}
           players={visiblePlayers}
           positionFilter={positionFilter}
           setPositionFilter={setPositionFilter}
@@ -228,25 +275,9 @@ function App() {
           onPick={handleLockPick}
         />
 
-        <div className="main-column">
-          <TopStatusBar
-            phase={phase}
-            mode={mode}
-            team={team}
-            era={era}
-            teamDisplay={teamDisplay}
-            eraDisplay={eraDisplay}
-            spinningWhat={spinningWhat}
-            teamRespinAvailable={teamRespinAvailable}
-            eraRespinAvailable={eraRespinAvailable}
-            onSpin={spinBoth}
-            onRespinTeam={respinTeam}
-            onRespinEra={respinEra}
-            picksRemaining={picksRemaining}
-            totalSlots={SLOTS.length}
-          />
+        <section className="field-wrap">
           <Field roster={roster} hideStats={mode === "challenge"} />
-        </div>
+        </section>
       </div>
     </div>
   );

@@ -2,37 +2,45 @@ export default function PlayerCard({
   player,
   position,
   team,
+  decade,
+  rating,
   hideDetails = false,
-  selected = false,
+  picked = false,
   onClick,
-  compact = false,
 }) {
   if (!player) return null;
+
+  const metaParts = [position];
+  if (team) metaParts.push(team.name || team);
+  if (decade) metaParts.push(`${decade}s`);
 
   return (
     <button
       type="button"
-      className={`player-card ${compact ? "compact" : ""} ${selected ? "selected" : ""} ${onClick ? "clickable" : ""}`}
+      className={`player-card ${picked ? "picked" : ""}`}
       onClick={onClick}
-      style={team ? { "--team-primary": team.primary, "--team-secondary": team.secondary } : undefined}
+      disabled={picked}
     >
-      <div className="player-card-header">
-        <span className="player-card-pos">{position}</span>
-        {!hideDetails && <span className="player-card-years">{player.years}</span>}
+      <div>
+        <div className="name">{player.name}</div>
+        <div className="meta">{metaParts.join(" \u00b7 ")}</div>
+        {!hideDetails && player.blurb && <div className="meta blurb">{player.blurb}</div>}
+        {!hideDetails && player.stats && player.stats.length > 0 && (
+          <div className="statline">
+            {player.stats
+              .slice(0, 4)
+              .map((s) => `${s.value} ${s.label}`)
+              .join(" / ")}
+          </div>
+        )}
+        {hideDetails && <div className="statline dim">Stats hidden &mdash; challenge mode</div>}
       </div>
-      <div className="player-card-name">{player.name}</div>
-      {!hideDetails && player.blurb && <div className="player-card-blurb">{player.blurb}</div>}
-      {!hideDetails && player.stats && player.stats.length > 0 && (
-        <div className="player-card-stats">
-          {player.stats.slice(0, 5).map((s, i) => (
-            <div className="player-card-stat" key={i}>
-              <span className="stat-value">{s.value}</span>
-              <span className="stat-label">{s.label}</span>
-            </div>
-          ))}
+      {!hideDetails && rating != null && (
+        <div className="rating">
+          {Math.round(rating)}
+          <span>OVR</span>
         </div>
       )}
-      {hideDetails && <div className="player-card-hidden-note">Stats hidden &mdash; challenge mode</div>}
     </button>
   );
 }

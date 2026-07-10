@@ -3,7 +3,7 @@ import Field from "./Field.jsx";
 const SLOT_LABELS = { QB: "QB", RB: "RB", WR: "WR", FLEX: "FLEX", TE: "TE", DEF: "DEF" };
 
 export default function ResultScreen({ roster, result, onPlayAgain }) {
-  const { wins, losses, verdict, rating, breakdown, games } = result;
+  const { wins, losses, verdict, teamOverall, breakdown, games } = result;
   const perfect = wins === 17;
 
   return (
@@ -12,7 +12,7 @@ export default function ResultScreen({ roster, result, onPlayAgain }) {
         {wins}-{losses}
       </h1>
       <p className="result-verdict">{verdict}</p>
-      <p className="result-rating">Team Rating: {rating} / 100</p>
+      <p className="result-rating">Team Overall: {teamOverall} OVR</p>
 
       <div className="result-body">
         <Field roster={roster} hideStats={false} />

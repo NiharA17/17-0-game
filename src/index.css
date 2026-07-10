@@ -1,6 +1,19 @@
 :root {
   color-scheme: dark;
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  --bg: #0b100c;
+  --panel: #121912;
+  --panel2: #172318;
+  --line: #2a392b;
+  --line2: #42543e;
+  --text: #f8fafc;
+  --muted: #a7b5a1;
+  --dim: #72806f;
+  --gold: #e6c15a;
+  --accent: #b91c1c;
+  --green: #21a650;
+  --red: #d7372f;
 }
 
 * {
@@ -14,8 +27,10 @@ html, body, #root {
 }
 
 body {
-  background: radial-gradient(circle at top, #10241a 0%, #05100a 55%, #020604 100%);
-  color: #f2f5f1;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(185, 28, 28, 0.14), transparent 32%),
+    linear-gradient(180deg, #080c08 0%, #0d140e 100%);
+  color: var(--text);
 }
 
 button {

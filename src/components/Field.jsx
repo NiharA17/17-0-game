@@ -1,4 +1,4 @@
-import PlayerCard from "./PlayerCard.jsx";
+import { ratingFor } from "../engine/recordPredictor.js";
 
 // Offense lines up below the line of scrimmage (facing up-field), defense above it.
 const SLOT_LAYOUT = [
@@ -11,46 +11,43 @@ const SLOT_LAYOUT = [
   { key: "RB", label: "RB", top: "94%", left: "50%", side: "offense" },
 ];
 
-export default function Field({ roster, hideStats }) {
-  const filled = Object.keys(roster).length;
+function shortTeamName(team) {
+  if (!team) return "";
+  const parts = team.name ? team.name.split(" ") : String(team).split(" ");
+  return parts[parts.length - 1];
+}
 
+export default function Field({ roster, hideStats }) {
   return (
     <div className="field">
-      <div className="field-scoreboard">
-        <span className="field-scoreboard-score">17 - 0</span>
-        <span className="field-scoreboard-sub">{filled} / 6 drafted</span>
-      </div>
-
-      <div className="field-lines">
-        {[...Array(9)].map((_, i) => (
-          <div className="yard-line" key={i} />
-        ))}
-      </div>
-
       <div className="line-of-scrimmage">
         <span>LINE OF SCRIMMAGE</span>
       </div>
 
       {SLOT_LAYOUT.map((slot) => {
         const entry = roster[slot.key];
+        const rating = entry
+          ? ratingFor(entry.position, entry.player.name, entry.decade, entry.team?.name || entry.team)
+          : null;
         return (
           <div
-            className={`field-slot field-slot-${slot.side}`}
+            className={`field-slot field-slot-${slot.side} ${entry ? "filled" : "empty"}`}
             style={{ top: slot.top, left: slot.left }}
             key={slot.key}
           >
             {entry ? (
-              <PlayerCard
-                player={entry.player}
-                position={entry.position}
-                team={entry.team}
-                hideDetails={hideStats}
-                compact
-              />
-            ) : (
-              <div className="field-slot-empty">
-                <span>{slot.label}</span>
+              <div className="pick-info">
+                <div className="pick-name">{entry.player.name}</div>
+                <div className="pick-meta">
+                  {slot.label}
+                  {!hideStats && rating != null ? ` \u00b7 ${Math.round(rating)} OVR` : ""}
+                </div>
+                <div className="pick-sub">
+                  {shortTeamName(entry.team)} {entry.decade}s
+                </div>
               </div>
+            ) : (
+              <span>{slot.label}</span>
             )}
           </div>
         );

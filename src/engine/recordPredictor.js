@@ -1,113 +1,105 @@
-// Heuristic "AI" that rates a 6-player fantasy roster and projects a 17-game
-// record as if that roster played in today's NFL. No external LLM call --
-// it's a deterministic scoring model based on stat magnitude + accolades.
+// Roster rating + 17-game record projection, ported directly from the
+// "17-0 game engine" reference implementation. Player overalls are NOT
+// derived from box-score stats anymore -- they're the engine's deterministic
+// hash-based rating (position base + decade adjustment + a stable per-name
+// roll), and the season is simulated by pitting a weighted team overall
+// against a spread of weekly opponent overalls via the engine's logistic
+// win-probability curve.
 
-const POSITION_WEIGHT = { QB: 0.30, RB: 0.15, WR: 0.15, FLEX: 0.13, TE: 0.12, DEF: 0.15 };
+const POSITION_BASE = { QB: 80, RB: 79, WR: 79, TE: 77, DEF: 78 };
 
-const ACCOLADE_BONUSES = [
-  { re: /HOF|Hall of Fame/i, bonus: 22 },
-  { re: /\bMVP\b/i, bonus: 16 },
-  { re: /DPOY|Defensive Player of the Year/i, bonus: 16 },
-  { re: /Super Bowl.*(champ|title|win)|(champ|title|win).*Super Bowl/i, bonus: 10 },
-  { re: /ROY|Rookie of the Year|DROY/i, bonus: 8 },
-  { re: /record/i, bonus: 6 },
-  { re: /All-Pro/i, bonus: 6 },
-  { re: /Pro Bowl/i, bonus: 4 },
-  { re: /elite|dominant|generational|greatest|GOAT/i, bonus: 8 },
-];
+const DECADE_ADJUST = {
+  1920: -7,
+  1930: -6,
+  1940: -5,
+  1950: -3,
+  1960: -2,
+  1970: -1,
+  1980: 0,
+  1990: 1,
+  2000: 2,
+  2010: 2,
+  2020: 2,
+};
 
-function accoladeScore(player) {
-  const text = `${player.blurb || ""} ${(player.stats || []).map((s) => s.value).join(" ")}`;
-  let score = 0;
-  for (const { re, bonus } of ACCOLADE_BONUSES) {
-    if (re.test(text) || re.test(player.blurb || "")) score += bonus;
-  }
-  const multiMatch = (player.blurb || "").match(/(\d+)x\s*(Pro Bowl|All-Pro|MVP|champion)/i);
-  if (multiMatch) score += Math.min(parseInt(multiMatch[1], 10) * 3, 24);
-  return score;
+// Slot weights used when averaging a roster into a single team overall.
+// FLEX borrows whichever weight matches the actual position slotted there.
+const SLOT_WEIGHT = { QB: 1.35, RB: 0.9, WR: 1.0, TE: 0.72, DEF: 1.18 };
+
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return h;
 }
 
-function statValue(player, labelPattern) {
-  const stat = (player.stats || []).find((s) => labelPattern.test(s.label));
-  if (!stat) return null;
-  const num = parseFloat(String(stat.value).replace(/[^0-9.]/g, ""));
-  return Number.isFinite(num) ? num : null;
+function pseudoRandom(seed) {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
 }
 
-function statScore(player, position) {
-  switch (position) {
-    case "QB": {
-      const rating = statValue(player, /Rating/i) ?? 75;
-      const passYds = statValue(player, /Pass Yds/i) ?? 2000;
-      const passTD = statValue(player, /Pass TD/i) ?? 15;
-      const int = statValue(player, /^INT$/i) ?? 15;
-      let s = ((rating - 50) / 70) * 55;
-      s += Math.min(passYds / 4500, 1) * 20;
-      s += Math.min(passTD / 35, 1) * 15;
-      s -= Math.min(int / 25, 1) * 10;
-      return Math.max(0, s);
-    }
-    case "RB": {
-      const rushYds = statValue(player, /Rush Yds/i) ?? 700;
-      const rushTD = statValue(player, /Rush TD/i) ?? 5;
-      const ypc = statValue(player, /YPC/i) ?? 4.0;
-      const recYds = statValue(player, /Rec Yds/i) ?? 200;
-      let s = Math.min(rushYds / 1800, 1) * 45;
-      s += Math.min(rushTD / 16, 1) * 20;
-      s += Math.min(Math.max(ypc - 3.5, 0) / 2.5, 1) * 15;
-      s += Math.min(recYds / 700, 1) * 10;
-      return Math.max(0, s);
-    }
-    case "WR": {
-      const recYds = statValue(player, /Rec Yds/i) ?? 500;
-      const recTD = statValue(player, /Rec TD/i) ?? 4;
-      const rec = statValue(player, /Receptions/i) ?? 50;
-      let s = Math.min(recYds / 1400, 1) * 50;
-      s += Math.min(recTD / 15, 1) * 25;
-      s += Math.min(rec / 100, 1) * 15;
-      return Math.max(0, s);
-    }
-    case "TE": {
-      const recYds = statValue(player, /Rec Yds/i) ?? 400;
-      const recTD = statValue(player, /Rec TD/i) ?? 3;
-      let s = Math.min(recYds / 1000, 1) * 55;
-      s += Math.min(recTD / 10, 1) * 30;
-      return Math.max(0, s);
-    }
-    case "DEF": {
-      const sacks = statValue(player, /Sacks/i);
-      const ints = statValue(player, /^INT$/i);
-      const tackles = statValue(player, /Tackles/i);
-      let s = 30;
-      if (sacks != null) s += Math.min(sacks / 14, 1) * 35;
-      if (ints != null) s += Math.min(ints / 6, 1) * 30;
-      if (tackles != null) s += Math.min(tackles / 150, 1) * 25;
-      return Math.min(100, s);
-    }
-    default:
-      return 40;
-  }
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
 }
 
-export function ratePlayer(player, position) {
-  const base = statScore(player, position);
-  const bonus = accoladeScore(player);
-  return Math.max(5, Math.min(100, base + bonus));
+// position: actual position (QB/RB/WR/TE/DEF). decade: numeric decade (e.g. 1990). team: team name string.
+export function ratingFor(position, name, decade, team) {
+  const key = [team || "", position, name || "", decade || ""].join("|");
+  const seed = hashStr(key.toLowerCase());
+  const roll = pseudoRandom(seed);
+  const base = (POSITION_BASE[position] ?? 78) + (DECADE_ADJUST[decade] ?? 0);
+  return clamp(Math.round(base + 4 + roll * 15 - 5), 58, 96);
 }
 
-// roster: { QB, RB, WR, FLEX, TE, DEF } each = { player, position }. `position` on
-// each entry is the player's ACTUAL position (e.g. a RB slotted into FLEX still
-// has position "RB"), while the object key is which roster SLOT they occupy.
+// Back-compat wrapper: rates a player entry using the engine's name/position/
+// decade/team hash instead of parsing box-score stats.
+export function ratePlayer(player, position, decade, team) {
+  return ratingFor(position, player?.name, decade, team?.name || team);
+}
+
+// roster: { QB, RB, WR, FLEX, TE, DEF } each = { player, position, team, decade }.
+// `position` on each entry is the player's ACTUAL position (e.g. a RB slotted
+// into FLEX still has position "RB"), while the object key is which roster
+// SLOT they occupy.
 export function computeTeamRating(roster) {
-  let total = 0;
+  let weight = 0;
+  let weighted = 0;
   const breakdown = {};
-  for (const slot of Object.keys(POSITION_WEIGHT)) {
-    const entry = roster[slot];
-    const score = ratePlayer(entry.player, entry.position);
-    breakdown[slot] = score;
-    total += score * POSITION_WEIGHT[slot];
+  for (const slotKey of Object.keys(roster)) {
+    const entry = roster[slotKey];
+    const w = SLOT_WEIGHT[entry.position] ?? SLOT_WEIGHT[slotKey] ?? 1;
+    const rating = ratingFor(entry.position, entry.player.name, entry.decade, entry.team?.name || entry.team);
+    breakdown[slotKey] = rating;
+    weight += w;
+    weighted += w * rating;
   }
-  return { rating: total, breakdown };
+  return { rating: weight ? weighted / weight : 0, breakdown };
+}
+
+export function computeTeamOverall(roster) {
+  return Math.round(computeTeamRating(roster).rating);
+}
+
+export function winProb(team, opp) {
+  return clamp(1 / (1 + Math.pow(10, -(team - opp) / 9)), 0.03, 0.97);
+}
+
+export function generateOpponents(count, rng) {
+  const rand = rng || Math.random;
+  const opps = [];
+  for (let i = 0; i < (count || 17); i++) {
+    const u = (rand() + rand() + rand()) / 3;
+    const allTimeSpike = rand() < 0.24 ? 4 : 0;
+    opps.push(Math.round(clamp(82 + u * 15 + allTimeSpike, 80, 99)));
+  }
+  return opps;
+}
+
+export function projectSeason(teamOverall, opponents) {
+  const probs = opponents.map((o) => winProb(teamOverall, o));
+  const expectedWins = probs.reduce((a, b) => a + b, 0);
+  const oddsPerfect = probs.reduce((a, b) => a * b, 1);
+  const avgOpp = Math.round(opponents.reduce((a, b) => a + b, 0) / opponents.length);
+  return { probs, expectedWins, oddsPerfect, avgOpp };
 }
 
 function seededRandom(seed) {
@@ -124,24 +116,25 @@ function seededRandom(seed) {
   };
 }
 
-function winProbability(teamRating) {
-  const diff = teamRating - 55;
-  return 1 / (1 + Math.exp(-diff / 11));
-}
-
 export function predictRecord(roster, seed) {
   const { rating, breakdown } = computeTeamRating(roster);
-  const p = winProbability(rating);
+  const teamOverall = Math.round(rating);
   const rng = seededRandom(seed || "17-0");
+  const opponents = generateOpponents(17, rng);
 
   let wins = 0, losses = 0;
   const games = [];
+  let probSum = 0;
   for (let i = 1; i <= 17; i++) {
+    const opp = opponents[i - 1];
+    const gameProb = winProb(teamOverall, opp);
+    probSum += gameProb;
     const roll = rng();
-    const win = roll < p;
+    const win = roll < gameProb;
     if (win) wins++; else losses++;
-    games.push({ game: i, win, margin: Math.round((rng() - 0.3) * 20) });
+    games.push({ game: i, win, opponentOverall: opp, winProbability: gameProb, margin: Math.round((rng() - 0.3) * 20) });
   }
+  const avgWinProb = probSum / games.length;
 
   let verdict;
   if (wins === 17) verdict = "PERFECT SEASON. History repeats itself.";
@@ -151,5 +144,14 @@ export function predictRecord(roster, seed) {
   else if (wins >= 6) verdict = "A middling squad that needed more firepower.";
   else verdict = "A rebuilding roster, overmatched by modern competition.";
 
-  return { rating: Math.round(rating * 10) / 10, breakdown, wins, losses, games, verdict, winProbability: p };
+  return {
+    rating: Math.round(rating * 10) / 10,
+    teamOverall,
+    breakdown,
+    wins,
+    losses,
+    games,
+    verdict,
+    winProbability: avgWinProb,
+  };
 }
