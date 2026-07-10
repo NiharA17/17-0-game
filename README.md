@@ -18,7 +18,7 @@ Inspired by "82-0," reimagined for football: spin a Team and an Era, draft real 
 
 - React 19 + Vite
 - A curated, hand-researched dataset of real NFL players by team/decade (`src/data/players.js`)
-- A heuristic rating engine that scores players on stats + accolades and projects a season record (`src/engine/recordPredictor.js`)
+- A deterministic rating engine that scores every player from a stable position/decade/name hash, rolls up a weighted team overall, and simulates a 17-game season against randomized weekly opponents with a logistic win-probability curve (`src/engine/recordPredictor.js`)
 
 ## Running locally
 
@@ -27,7 +27,7 @@ npm install
 npm run dev
 ```
 
-Then open the printed `http://localhost:5173/` URL.
+Then open the printed `http://localhost:5173/17-0-game/` URL.
 
 ## Project structure
 
@@ -38,10 +38,10 @@ src/
     players.js      # player database: PLAYERS[teamId][decade][position]
   engine/
     dataAccess.js       # pool lookup + decade-fallback logic
-    recordPredictor.js  # roster rating + season simulation
+    recordPredictor.js  # player/team rating + season simulation
   components/
     ModeSelect.jsx   # Classic / Challenge mode picker
-    DraftPanel.jsx   # team/era spinner + player draft UI
+    Sidebar.jsx      # position tabs, search/sort, and the player draft list
     Field.jsx        # roster display on a mini football field
     PlayerCard.jsx   # individual player card
     ResultScreen.jsx # final record + breakdown
