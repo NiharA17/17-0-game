@@ -14,7 +14,7 @@
 // aware estimate parsed from their blurb, on the same Madden-style 55-99
 // scale. The season simulation itself is untouched.
 
-import { PEAK_OVERALL } from "../data/peakRatings.js";
+import { PEAK_OVERALL, PEAK_OVERALL_BY_POSITION } from "../data/peakRatings.js";
 
 const POSITION_BASE = { QB: 77, RB: 76, WR: 76, TE: 74, DEF: 75 };
 
@@ -88,6 +88,11 @@ function accoladeScore(player) {
 // (e.g. 1990). team: team name string.
 export function ratingFor(position, player, decade, team) {
   const name = typeof player === "string" ? player : player?.name;
+  // Position-qualified lookup first -- disambiguates same-name players across
+  // positions (e.g. QB Josh Allen vs. Jaguars edge rusher Josh Allen).
+  if (name && position && PEAK_OVERALL_BY_POSITION[`${name}|${position}`] != null) {
+    return PEAK_OVERALL_BY_POSITION[`${name}|${position}`];
+  }
   if (name && PEAK_OVERALL[name] != null) return PEAK_OVERALL[name];
 
   const key = [team || "", position, name || "", decade || ""].join("|");
